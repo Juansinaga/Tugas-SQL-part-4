@@ -1,0 +1,82 @@
+CREATE TABLE pegawai (
+    id INT,
+    nama VARCHAR(50),
+    gaji DECIMAL(10, 2),
+    departemen VARCHAR(50)
+);
+
+
+INSERT INTO pegawai (id, nama, gaji, departemen) VALUES
+(1, 'Aisyah', 7000, 'IT'),
+(2, 'Budi', 8000, 'IT'),
+(3, 'Chika', 5000, 'HR'),
+(4, 'Dodi', 5500, 'HR'),
+(5, 'Eka', 8500, 'IT'),
+(6, 'Fahmi', 6000, 'Marketing'),
+(7, 'Gina', 6500, 'Marketing');
+
+
+SELECT 
+	*
+FROM public.pegawai;
+
+/*
+1.  Soal Stored Procedure
+-- Buatlah stored procedure bernama get_gaji_dan_peringkat yang tidak memerlukan parameter masukan.
+-- Stored procedure ini harus mengembalikan tabel yang berisi kolom nama, departemen, gaji, dan peringkat_gaji. 
+-- Kolom peringkat_gaji menunjukkan peringkat gaji pegawai dalam departemen masing-masing berdasarkan gaji tertinggi ke terendah. 
+-- Jika dua pegawai memiliki gaji yang sama, mereka harus memiliki peringkat yang sama
+ */
+
+CREATE OR REPLACE PROCEDURE get_gaji_dan_peringkat()
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    nama VARCHAR;
+    departemen VARCHAR; 
+    gaji DECIMAL;
+    peringkat_gaji INT;
+BEGIN 
+    FOR nama, departemen, gaji, peringkat_gaji IN
+        SELECT
+            p.nama,
+            p.departemen,
+            p.gaji,
+            RANK() OVER(PARTITION BY p.departemen ORDER BY p.gaji DESC) AS peringkat_gaji
+        FROM pegawai p
+    LOOP
+        RAISE NOTICE 'Nama: %, Departemen: %, Gaji: %, Peringkat Gaji: %',
+            nama,
+            departemen,
+            gaji,
+            peringkat_gaji;
+    END LOOP;
+END; $$;
+
+CALL get_gaji_dan_peringkat(); 
+
+-- DROP PROCEDURE get_gaji_dan_peringkat();
+
+
+
+/*
+2. Soal Indeks Column Pada table
+Setelah Anda berhasil membuat stored procedure seperti di soal sebelumnya, 
+sekarang Anda dihadapkan pada masalah performa saat query tersebut dijalankan 
+pada tabel `pegawai` yang telah tumbuh menjadi sangat besar dengan jutaan baris data. 
+Anda menyadari bahwa untuk meningkatkan performa query, Anda perlu membuat indeks pada tabel tersebut.
+Identifikasi Kolom untuk Indeksasi: Berdasarkan query yang ada di dalam stored procedure `get_gaji_dan_peringkat`, 
+identifikasi kolom mana yang paling tepat untuk diindeksasi guna meningkatkan performa query lalu buatkan indeks pada kolumn tersebut:
+*/
+
+EXPLAIN ANALYZE SELECT -- CHECK COST performance 
+            p.nama,
+            p.departemen,
+            p.gaji,
+            RANK() OVER(PARTITION BY p.departemen ORDER BY p.gaji DESC) AS peringkat_gaji
+        FROM pegawai p;
+        
+/* Membuat Index di kolom pegawai dan gaji karena kolom departemen mengandung patition dan gaji order by
+ Sehingga dengan menggunakan indexing proses tersebut bisa lebih cepat */
+CREATE INDEX idx_departemen ON pegawai(departemen);
+CREATE INDEX idx_gaji ON pegawai(gaji);
